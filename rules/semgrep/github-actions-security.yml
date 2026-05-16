@@ -1,0 +1,108 @@
+rules:
+
+  # ── CICD-SG-001: Script injection via PR title ─────────────────────────
+  - id: cicd-script-injection-pr-title
+    patterns:
+      - pattern: |
+          run: ... ${{ github.event.pull_request.title }} ...
+    message: >
+      Script injection risk: `github.event.pull_request.title` is attacker-controlled
+      and is interpolated directly into a `run:` block.
+      Use `toJSON()` and pass via an environment variable instead.
+    severity: ERROR
+    languages: [yaml]
+    metadata:
+      cve: GHSA-3jfq-742w-xg8j
+      category: security
+      confidence: HIGH
+
+  # ── CICD-SG-002: Script injection via issue body ────────────────────────
+  - id: cicd-script-injection-issue-body
+    patterns:
+      - pattern: |
+          run: ... ${{ github.event.issue.body }} ...
+    message: >
+      Script injection risk: `github.event.issue.body` is attacker-controlled.
+      Never interpolate it directly into shell commands.
+    severity: ERROR
+    languages: [yaml]
+    metadata:
+      category: security
+      confidence: HIGH
+
+  # ── CICD-SG-003: pull_request_target with write-all permissions ─────────
+  - id: cicd-prt-write-all
+    patterns:
+      - pattern: |
+          on:
+            pull_request_target: ...
+          permissions: write-all
+    message: >
+      `pull_request_target` combined with `permissions: write-all` gives
+      untrusted fork code unrestricted write access to the repository.
+    severity: ERROR
+    languages: [yaml]
+    metadata:
+      cve: CVE-2022-39046
+      category: security
+      confidence: HIGH
+
+  # ── CICD-SG-004: Unpinned third-party action (tag reference) ───────────
+  - id: cicd-unpinned-action-tag
+    pattern-regex: 'uses:\s+[^/]+/[^@]+@(v\d+[\w.]*)$'
+    message: >
+      Action pinned to a version tag, not a commit SHA.
+      Tags are mutable and can be moved to point to malicious code.
+      Pin to a full SHA: `uses: owner/action@<sha>  # vX.Y.Z`
+    severity: WARNING
+    languages: [yaml]
+    metadata:
+      category: supply-chain
+      confidence: MEDIUM
+
+  # ── CICD-SG-005: Unpinned action on main/master branch ─────────────────
+  - id: cicd-unpinned-action-branch
+    pattern-regex: 'uses:\s+[^/]+/[^@]+@(main|master|latest|HEAD)$'
+    message: >
+      Action pinned to a mutable branch (`main`, `master`, `latest`, `HEAD`).
+      This is the most dangerous pinning strategy — any push to that branch
+      will affect your pipeline. Pin to a commit SHA immediately.
+    severity: ERROR
+    languages: [yaml]
+    metadata:
+      category: supply-chain
+      confidence: HIGH
+
+  # ── CICD-SG-006: GITHUB_TOKEN with write-all permissions ───────────────
+  - id: cicd-token-write-all
+    pattern: |
+      permissions: write-all
+    message: >
+      `permissions: write-all` grants the GITHUB_TOKEN write access to every
+      available resource. Apply least-privilege and only grant what each job needs.
+    severity: WARNING
+    languages: [yaml]
+    metadata:
+      category: security
+      confidence: HIGH
+
+  # ── CICD-SG-007: actions/cache without hashFiles ───────────────────────
+  - id: cicd-cache-no-hash
+    patterns:
+      - pattern: |
+          uses: actions/cache@...
+          with:
+            key: $KEY
+      - pattern-not: |
+          uses: actions/cache@...
+          with:
+            key: ... hashFiles(...) ...
+    message: >
+      Cache key does not include `hashFiles()`. An attacker can poison
+      the cache with malicious artifacts. Use:
+      `key: ${{ runner.os }}-${{ hashFiles('**/lockfile') }}`
+    severity: WARNING
+    languages: [yaml]
+    metadata:
+      category: security
+      confidence: MEDIUM

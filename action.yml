@@ -1,0 +1,55 @@
+name: CI/CD Security Auditor
+description: >
+  Scan your GitHub repository for hardcoded secrets, CI/CD misconfigurations,
+  and vulnerable dependencies. Outputs SARIF 2.1 + HTML reports.
+author: cicd-auditor
+
+inputs:
+  repo_url:
+    description: GitHub repository URL to scan (defaults to the calling repo)
+    required: false
+    default: ''
+  fail_on_severity:
+    description: Minimum severity level that causes the action to fail the check
+    required: false
+    default: 'HIGH'
+  output_dir:
+    description: Directory to write reports into
+    required: false
+    default: './reports'
+  nvd_api_key:
+    description: NVD API key for higher rate limits during dependency enrichment
+    required: false
+    default: ''
+  skip_secrets:
+    description: Set to 'true' to skip the secret detection scanner
+    required: false
+    default: 'false'
+  skip_misconfigs:
+    description: Set to 'true' to skip the misconfiguration scanner
+    required: false
+    default: 'false'
+  skip_deps:
+    description: Set to 'true' to skip the dependency vulnerability scanner
+    required: false
+    default: 'false'
+
+outputs:
+  sarif_path:
+    description: Path to the generated SARIF file
+  html_path:
+    description: Path to the generated HTML report
+
+runs:
+  using: docker
+  image: Dockerfile
+  args:
+    - ${{ inputs.repo_url || github.event.repository.html_url }}
+    - --output-dir
+    - ${{ inputs.output_dir }}
+    - --fail-on-severity
+    - ${{ inputs.fail_on_severity }}
+
+branding:
+  icon: shield
+  color: purple

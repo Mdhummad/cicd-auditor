@@ -1,0 +1,63 @@
+name: Security Audit on PR
+
+on:
+  pull_request:
+    branches: [main, master]
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write   # required to upload SARIF
+
+jobs:
+  security-audit:
+    name: CI/CD Security Audit
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608  # v4.1.0
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@65d7f2d534ac1bc67fcd62888c5f4f3d2cb2b236  # v4.7.1
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install audit tool dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install trufflehog3 semgrep pip-audit || true
+
+      - name: Run CI/CD Security Audit
+        id: audit
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+        run: |
+          python audit.py ${{ github.event.repository.html_url }} \
+            --output-dir ./reports \
+            --fail-on-severity HIGH
+        continue-on-error: true   # Don't block on scanner errors
+
+      - name: Upload SARIF to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@74483a38d39275f33fcff5f35b679b5ca4a26a99  # v2
+        if: always()
+        with:
+          sarif_file: ./reports/
+        continue-on-error: true
+
+      - name: Upload HTML report as artifact
+        uses: actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32  # v3.1.3
+        if: always()
+        with:
+          name: security-audit-report
+          path: ./reports/
+          retention-days: 30
+
+      - name: Fail if critical issues found
+        if: steps.audit.outcome == 'failure'
+        run: |
+          echo "::error::Security audit found HIGH or CRITICAL issues. Review the Security tab."
+          exit 1

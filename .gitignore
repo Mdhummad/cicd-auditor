@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+.env
+
+# Reports (generated at runtime)
+reports/
+
+# SQLite databases (regenerated automatically)
+db/*.sqlite
+db/nvd_cache.sqlite
+db/audit_history.sqlite
+
+# Temp clone directories
+/tmp/
+cicd_audit_*/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Logs
+*.log

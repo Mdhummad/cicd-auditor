@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>CI/CD Security Auditor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+:root{--bg:#080d13;--bg2:#0d1117;--bg3:#161b22;--bg4:#21262d;--border:#30363d;--text:#e6edf3;--muted:#8b949e;--critical:#ff453a;--high:#ff9f0a;--medium:#ffd60a;--low:#30d158;--accent:#58a6ff;--accent2:#bc8cff;--r:10px;--font:'Inter',system-ui,sans-serif;--mono:'JetBrains Mono',monospace}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:100vh;font-size:14px;line-height:1.6}
+a{color:var(--accent);text-decoration:none}
+
+/* ── Hero ── */
+.hero{background:linear-gradient(135deg,#0d1117 0%,#131a28 50%,#0d1117 100%);border-bottom:1px solid var(--border);padding:60px 20px 50px;text-align:center;position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 700px 300px at 50% -20%,rgba(88,166,255,.08),transparent);pointer-events:none}
+.hero-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(88,166,255,.1);border:1px solid rgba(88,166,255,.3);color:var(--accent);border-radius:999px;padding:4px 14px;font-size:12px;font-weight:600;letter-spacing:.5px;margin-bottom:20px}
+.hero h1{font-size:clamp(28px,5vw,52px);font-weight:800;line-height:1.1;margin-bottom:14px;background:linear-gradient(135deg,#e6edf3 30%,#58a6ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hero p{color:var(--muted);font-size:16px;max-width:520px;margin:0 auto 36px}
+
+/* ── Scan card ── */
+.scan-card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:28px;max-width:700px;margin:0 auto;position:relative}
+.scan-card::before{content:'';position:absolute;inset:-1px;border-radius:calc(var(--r)+1px);background:linear-gradient(135deg,rgba(88,166,255,.3),transparent,rgba(188,140,255,.2));padding:1px;-webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor;pointer-events:none}
+.input-row{display:flex;gap:10px}
+.url-input{flex:1;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:12px 16px;font-size:14px;font-family:var(--mono);outline:none;transition:border-color .2s}
+.url-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(88,166,255,.1)}
+.url-input::placeholder{color:var(--muted)}
+.scan-btn{background:linear-gradient(135deg,#1f6feb,#388bfd);color:#fff;border:none;border-radius:8px;padding:12px 24px;font-size:14px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all .2s;display:flex;align-items:center;gap:8px}
+.scan-btn:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(56,139,253,.35)}
+.scan-btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.scan-options{display:flex;gap:16px;margin-top:14px;flex-wrap:wrap}
+.opt-label{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:12px;cursor:pointer;user-select:none}
+.opt-label input[type=checkbox]{accent-color:var(--accent);width:14px;height:14px}
+.error-msg{color:var(--critical);font-size:13px;margin-top:10px;display:none}
+
+/* ── Progress panel ── */
+.progress-panel{max-width:700px;margin:20px auto 0;display:none}
+.progress-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.progress-title{font-weight:600;font-size:14px}
+.progress-spinner{width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.log-box{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:16px;font-family:var(--mono);font-size:12px;height:260px;overflow-y:auto;color:#c9d1d9;line-height:1.7}
+.log-box .log-phase{color:var(--accent);font-weight:700}
+.log-box .log-ok{color:var(--low)}
+.log-box .log-warn{color:var(--high)}
+.log-box .log-err{color:var(--critical)}
+
+/* ── Done panel ── */
+.done-panel{max-width:700px;margin:20px auto 0;display:none}
+.summary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+.scard{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:14px;text-align:center}
+.scard .val{font-size:26px;font-weight:800;line-height:1}
+.scard .lbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-top:4px}
+.c-crit{color:var(--critical)}.c-high{color:var(--high)}.c-med{color:var(--medium)}.c-low{color:var(--low)}
+.action-btns{display:flex;gap:10px;flex-wrap:wrap}
+.action-btn{display:inline-flex;align-items:center;gap:8px;padding:10px 20px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;text-decoration:none;border:1px solid var(--border);background:var(--bg3);color:var(--text);transition:all .2s}
+.action-btn:hover{border-color:var(--accent);color:var(--accent)}
+.action-btn.primary{background:linear-gradient(135deg,#1f6feb,#388bfd);border-color:transparent;color:#fff}
+.action-btn.primary:hover{box-shadow:0 6px 20px rgba(56,139,253,.35);color:#fff}
+
+/* ── Report iframe ── */
+.report-frame-wrap{max-width:1200px;margin:24px auto 0;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;display:none}
+.frame-topbar{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border);background:var(--bg3)}
+.frame-dot{width:12px;height:12px;border-radius:50%}
+.frame-topbar span{font-size:12px;color:var(--muted);font-family:var(--mono);flex:1;text-align:center}
+#reportFrame{width:100%;height:calc(100vh - 80px);border:none;min-height:600px}
+
+/* ── History ── */
+.page{max-width:1200px;margin:0 auto;padding:0 20px 60px}
+.section-title{font-size:16px;font-weight:700;margin:40px 0 14px;display:flex;align-items:center;gap:8px}
+.section-title::after{content:'';flex:1;height:1px;background:var(--border)}
+.hist-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.hist-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:16px;cursor:pointer;transition:all .2s}
+.hist-card:hover{border-color:var(--accent);transform:translateY(-2px)}
+.hist-card .repo{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--accent);margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hist-card .time{font-size:11px;color:var(--muted);margin-bottom:10px}
+.hist-pills{display:flex;gap:6px;flex-wrap:wrap}
+.pill{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700}
+.pill-crit{background:rgba(255,69,58,.15);color:var(--critical)}
+.pill-high{background:rgba(255,159,10,.15);color:var(--high)}
+.pill-med{background:rgba(255,214,10,.15);color:var(--medium)}
+.pill-low{background:rgba(48,209,88,.15);color:var(--low)}
+.pill-done{background:rgba(48,209,88,.1);color:var(--low)}
+.pill-running{background:rgba(88,166,255,.1);color:var(--accent)}
+.pill-error{background:rgba(255,69,58,.1);color:var(--critical)}
+
+/* ── Features strip ── */
+.features{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin:32px auto;max-width:700px}
+.feat{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:14px 16px;display:flex;align-items:flex-start;gap:10px}
+.feat-icon{font-size:20px;line-height:1}
+.feat-text strong{display:block;font-size:13px;margin-bottom:2px}
+.feat-text span{font-size:11px;color:var(--muted)}
+
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+.page,.hero{animation:fadeUp .35s ease}
+</style>
+</head>
+<body>
+
+<!-- ── HERO ── -->
+<div class="hero">
+  <div class="hero-badge">🔐 DevSecOps</div>
+  <h1>CI/CD Security Auditor</h1>
+  <p>Paste any GitHub repo URL to scan for secrets, misconfigurations, and vulnerable dependencies.</p>
+
+  <div class="scan-card">
+    <div class="input-row">
+      <input id="repoUrl" class="url-input" type="url"
+             placeholder="https://github.com/owner/repository"
+             value="" autocomplete="off" spellcheck="false"/>
+      <button id="scanBtn" class="scan-btn" onclick="startScan()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        Scan Repo
+      </button>
+    </div>
+    <div class="scan-options">
+      <label class="opt-label"><input type="checkbox" id="skipSecrets"/> Skip Secrets</label>
+      <label class="opt-label"><input type="checkbox" id="skipMisconfigs"/> Skip Misconfigs</label>
+      <label class="opt-label"><input type="checkbox" id="skipDeps" checked/> Skip Dependencies</label>
+    </div>
+    <div class="error-msg" id="errMsg"></div>
+  </div>
+
+  <div class="features">
+    <div class="feat"><div class="feat-icon">🔑</div><div class="feat-text"><strong>Secret Detection</strong><span>15 regex patterns</span></div></div>
+    <div class="feat"><div class="feat-icon">⚙️</div><div class="feat-text"><strong>Misconfigs</strong><span>7 YAML rules + CVEs</span></div></div>
+    <div class="feat"><div class="feat-icon">📦</div><div class="feat-text"><strong>CVE Audit</strong><span>pip-audit + NVD API</span></div></div>
+    <div class="feat"><div class="feat-icon">📄</div><div class="feat-text"><strong>SARIF Output</strong><span>GitHub Security tab</span></div></div>
+  </div>
+</div>
+
+<!-- ── PROGRESS ── -->
+<div class="page">
+  <div class="progress-panel" id="progressPanel">
+    <div class="section-title">
+      Live Scan Output
+      <div class="progress-spinner" id="spinner"></div>
+    </div>
+    <div class="log-box" id="logBox"></div>
+  </div>
+
+  <!-- ── DONE ── -->
+  <div class="done-panel" id="donePanel">
+    <div class="section-title">Scan Complete</div>
+    <div class="summary-grid">
+      <div class="scard"><div class="val c-crit" id="rCrit">0</div><div class="lbl">Critical</div></div>
+      <div class="scard"><div class="val c-high" id="rHigh">0</div><div class="lbl">High</div></div>
+      <div class="scard"><div class="val c-med"  id="rMed">0</div><div class="lbl">Medium</div></div>
+      <div class="scard"><div class="val c-low"  id="rLow">0</div><div class="lbl">Low</div></div>
+    </div>
+    <div class="action-btns">
+      <a id="viewBtn" href="#" class="action-btn primary" onclick="openReport(event)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        View Full Report
+      </a>
+      <a id="sarifBtn" href="#" class="action-btn" download>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download SARIF
+      </a>
+      <a id="htmlBtn" href="#" class="action-btn" download>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download HTML
+      </a>
+      <button class="action-btn" onclick="newScan()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+        New Scan
+      </button>
+    </div>
+  </div>
+
+  <!-- ── INLINE REPORT IFRAME ── -->
+  <div class="report-frame-wrap" id="reportFrameWrap">
+    <div class="frame-topbar">
+      <div class="frame-dot" style="background:#ff5f57"></div>
+      <div class="frame-dot" style="background:#febc2e"></div>
+      <div class="frame-dot" style="background:#28c840"></div>
+      <span id="frameUrl">report</span>
+    </div>
+    <iframe id="reportFrame" src="about:blank"></iframe>
+  </div>
+
+  <!-- ── HISTORY ── -->
+  {% if history %}
+  <div class="section-title" style="margin-top:48px">Previous Scans</div>
+  <div class="hist-grid">
+    {% for s in history %}
+    <div class="hist-card" onclick="loadReport('{{s.report_html}}','{{s.scan_id}}')">
+      <div class="repo">{{ s.repo_url.replace('https://github.com/','') }}</div>
+      <div class="time">{{ s.started }}</div>
+      <div class="hist-pills">
+        <span class="pill pill-{{s.status}}">{{ s.status }}</span>
+        {% if s.findings_summary %}
+          {% if s.findings_summary.critical > 0 %}<span class="pill pill-crit">{{ s.findings_summary.critical }} critical</span>{% endif %}
+          {% if s.findings_summary.high > 0 %}<span class="pill pill-high">{{ s.findings_summary.high }} high</span>{% endif %}
+          {% if s.findings_summary.medium > 0 %}<span class="pill pill-med">{{ s.findings_summary.medium }} medium</span>{% endif %}
+          {% if s.findings_summary.low > 0 %}<span class="pill pill-low">{{ s.findings_summary.low }} low</span>{% endif %}
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+
+<script>
+let currentScanId = null;
+let currentReportHtml = null;
+
+async function startScan() {
+  const url = document.getElementById('repoUrl').value.trim();
+  const err = document.getElementById('errMsg');
+  err.style.display = 'none';
+
+  if (!url.startsWith('https://github.com/')) {
+    err.textContent = 'Please enter a valid https://github.com/... URL';
+    err.style.display = 'block';
+    return;
+  }
+
+  // Build body with skip options
+  const body = { repo_url: url };
+  if (document.getElementById('skipSecrets').checked)   body.skip_secrets = true;
+  if (document.getElementById('skipMisconfigs').checked) body.skip_misconfigs = true;
+  if (document.getElementById('skipDeps').checked)      body.skip_deps = true;
+
+  document.getElementById('scanBtn').disabled = true;
+  document.getElementById('scanBtn').textContent = 'Starting...';
+  document.getElementById('progressPanel').style.display = 'block';
+  document.getElementById('donePanel').style.display = 'none';
+  document.getElementById('reportFrameWrap').style.display = 'none';
+  document.getElementById('logBox').innerHTML = '';
+
+  try {
+    const res = await fetch('/scan', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(body)
+    });
+    const data = await res.json();
+    if (data.error) { showError(data.error); return; }
+    currentScanId = data.scan_id;
+    streamLogs(data.scan_id);
+  } catch(e) {
+    showError('Failed to start scan: ' + e);
+  }
+}
+
+function streamLogs(scanId) {
+  const logBox = document.getElementById('logBox');
+  const btn = document.getElementById('scanBtn');
+  btn.textContent = 'Scanning...';
+
+  const es = new EventSource(`/stream/${scanId}`);
+
+  es.onmessage = (e) => {
+    const data = JSON.parse(e.data);
+    if (data.type === 'log') {
+      appendLog(data.msg);
+    } else if (data.type === 'done') {
+      es.close();
+      document.getElementById('spinner').style.display = 'none';
+      showDone(data);
+    } else if (data.type === 'error') {
+      es.close();
+      showError(data.msg);
+    }
+  };
+
+  es.onerror = () => {
+    es.close();
+    // Fallback: poll
+    pollStatus(scanId);
+  };
+}
+
+function appendLog(msg) {
+  const logBox = document.getElementById('logBox');
+  const div = document.createElement('div');
+  // Colorize
+  let cls = '';
+  if (/phase/i.test(msg)) cls = 'log-phase';
+  else if (/ok|complete|pass|found/i.test(msg)) cls = 'log-ok';
+  else if (/warn|high|critical/i.test(msg)) cls = 'log-warn';
+  else if (/error|fail|x /i.test(msg)) cls = 'log-err';
+  if (cls) div.className = cls;
+  div.textContent = msg;
+  logBox.appendChild(div);
+  logBox.scrollTop = logBox.scrollHeight;
+}
+
+function showDone(data) {
+  const btn = document.getElementById('scanBtn');
+  btn.disabled = false;
+  btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg> Scan Repo';
+
+  const s = data.summary || {critical:0,high:0,medium:0,low:0};
+  document.getElementById('rCrit').textContent = s.critical;
+  document.getElementById('rHigh').textContent = s.high;
+  document.getElementById('rMed').textContent  = s.medium;
+  document.getElementById('rLow').textContent  = s.low;
+
+  currentReportHtml = data.report_html;
+  if (data.report_html) {
+    document.getElementById('viewBtn').href   = `/reports/${data.report_html}`;
+    document.getElementById('htmlBtn').href   = `/reports/${data.report_html}`;
+    document.getElementById('sarifBtn').href  = data.report_sarif ? `/reports/${data.report_sarif}` : '#';
+  }
+
+  document.getElementById('donePanel').style.display = 'block';
+
+  // Auto-load report inline
+  if (data.report_html) autoLoadReport(data.report_html);
+}
+
+function openReport(e) {
+  e.preventDefault();
+  if (currentReportHtml) autoLoadReport(currentReportHtml);
+}
+
+function autoLoadReport(filename) {
+  const wrap = document.getElementById('reportFrameWrap');
+  const frame = document.getElementById('reportFrame');
+  document.getElementById('frameUrl').textContent = filename;
+  frame.src = `/reports/${filename}`;
+  wrap.style.display = 'block';
+  wrap.scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function loadReport(filename, scanId) {
+  if (!filename) return;
+  autoLoadReport(filename);
+}
+
+function newScan() {
+  document.getElementById('progressPanel').style.display = 'none';
+  document.getElementById('donePanel').style.display = 'none';
+  document.getElementById('reportFrameWrap').style.display = 'none';
+  document.getElementById('spinner').style.display = 'block';
+  document.getElementById('repoUrl').value = '';
+  document.getElementById('repoUrl').focus();
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+function showError(msg) {
+  const btn = document.getElementById('scanBtn');
+  btn.disabled = false;
+  btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg> Scan Repo';
+  const err = document.getElementById('errMsg');
+  err.textContent = msg;
+  err.style.display = 'block';
+}
+
+async function pollStatus(scanId) {
+  let prev = 0;
+  while(true) {
+    await new Promise(r => setTimeout(r, 1000));
+    const res = await fetch(`/status/${scanId}`);
+    const data = await res.json();
+    // Append any new logs via a separate endpoint would be needed — 
+    // for now just show status
+    if (data.status === 'done') {
+      const fullData = await fetch(`/stream/${scanId}`).then(r => r.json()).catch(() => ({}));
+      showDone({summary: data.summary, report_html: data.report_html});
+      break;
+    }
+    if (data.status === 'error') { showError('Scan failed. Check terminal output.'); break; }
+  }
+}
+
+// Allow pressing Enter in input
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('repoUrl').addEventListener('keydown', e => {
+    if (e.key === 'Enter') startScan();
+  });
+});
+</script>
+</body>
+</html>

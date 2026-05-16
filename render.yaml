@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: cicd-auditor
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --timeout 300 --workers 1 --threads 4 --bind 0.0.0.0:$PORT
+    envVars:
+      - key: PYTHONIOENCODING
+        value: utf-8
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      - key: NVD_API_KEY
+        sync: false   # Set this in Render dashboard (optional)
+    disk:
+      name: reports-disk
+      mountPath: /opt/render/project/src/reports
+      sizeGB: 1
