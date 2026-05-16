@@ -163,6 +163,4 @@ jobs:
 
 ---
 
-## Resume Bullet Point
 
-> Built a Python-based CI/CD security audit tool that scans GitHub repositories for hardcoded secrets (custom regex engine with 15 patterns), GitHub Actions misconfigurations (7 custom YAML rules covering CVE-2022-39046 and GHSA-3jfq-742w-xg8j), and vulnerable dependencies (pip-audit/npm audit with NVD API CVSS enrichment). Outputs SARIF 2.1 reports with CVSS-style contextual risk scoring and auto-generated remediation snippets. Packaged as a reusable GitHub Action.
